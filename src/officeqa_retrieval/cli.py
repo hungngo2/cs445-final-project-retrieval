@@ -7,8 +7,9 @@ from pathlib import Path
 
 from .bm25 import PageBm25Index
 from .dataset import load_questions, save_sanity_subset
+from .faiss_index import MultimodalFaissIndex
 from .manifest import build_page_manifest, load_page_manifest
-from .pipeline import run_bm25_experiment, run_vision_experiment, save_run_artifacts
+from .pipeline import run_bm25_experiment, run_multimodal_faiss_experiment, save_run_artifacts
 from .utils import ensure_parent_dir
 
 
@@ -37,18 +38,43 @@ def build_page_index_main() -> None:
     index.save(args.index_out)
 
 
+def build_multimodal_index_main() -> None:
+    parser = argparse.ArgumentParser(description="Build a multimodal FAISS page index from a page manifest.")
+    parser.add_argument("--manifest", required=True)
+    parser.add_argument("--index-dir", required=True)
+    parser.add_argument("--model", choices=["clip", "siglip"], required=True)
+    parser.add_argument("--crop-mode", choices=["full", "fixed_2x2"], default="full")
+    parser.add_argument("--render-cache", required=True)
+    parser.add_argument("--model-name")
+    parser.add_argument("--device")
+    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--page-batch-size", type=int, default=32)
+    parser.add_argument("--dpi", type=int, default=150)
+    args = parser.parse_args()
+
+    page_records = load_page_manifest(args.manifest)
+    MultimodalFaissIndex.build(
+        page_records=page_records,
+        index_dir=args.index_dir,
+        model_key=args.model,
+        crop_mode=args.crop_mode,
+        render_cache=args.render_cache,
+        model_name=args.model_name,
+        device=args.device,
+        batch_size=args.batch_size,
+        page_batch_size=args.page_batch_size,
+        dpi=args.dpi,
+    )
+
+
 def run_retrieval_eval_main() -> None:
     parser = argparse.ArgumentParser(description="Run OfficeQA retrieval experiments.")
     parser.add_argument("--questions-csv", required=True)
-    parser.add_argument("--manifest", required=True)
     parser.add_argument("--index", required=True)
     parser.add_argument("--out-dir", required=True)
-    parser.add_argument("--model", choices=["bm25", "clip", "siglip"], required=True)
-    parser.add_argument("--crop-mode", choices=["full", "fixed_2x2"], default="full")
-    parser.add_argument("--render-cache")
-    parser.add_argument("--shortlist-k", type=int, default=50)
-    parser.add_argument("--final-top-k", type=int)
-    parser.add_argument("--model-name")
+    parser.add_argument("--model", choices=["bm25", "clip_faiss", "siglip_faiss"], required=True)
+    parser.add_argument("--top-k", type=int, default=50)
+    parser.add_argument("--search-k-multiplier", type=int, default=8)
     parser.add_argument("--device")
     parser.add_argument("--batch-size", type=int, default=8)
     args = parser.parse_args()
@@ -56,28 +82,20 @@ def run_retrieval_eval_main() -> None:
     if args.model == "bm25":
         questions, predictions = run_bm25_experiment(
             questions_csv=args.questions_csv,
-            manifest_path=args.manifest,
             index_path=args.index,
-            shortlist_k=args.shortlist_k,
+            top_k=args.top_k,
         )
         method = "bm25"
     else:
-        if not args.render_cache:
-            parser.error("--render-cache is required for vision reranking")
-        questions, predictions = run_vision_experiment(
+        questions, predictions = run_multimodal_faiss_experiment(
             questions_csv=args.questions_csv,
-            manifest_path=args.manifest,
             index_path=args.index,
-            render_cache=args.render_cache,
-            model_key=args.model,
-            crop_mode=args.crop_mode,
-            shortlist_k=args.shortlist_k,
-            final_top_k=args.final_top_k,
-            model_name=args.model_name,
+            top_k=args.top_k,
+            search_k_multiplier=args.search_k_multiplier,
             device=args.device,
             batch_size=args.batch_size,
         )
-        method = f"{args.model}_{args.crop_mode}"
+        method = args.model
 
     metrics = save_run_artifacts(
         out_dir=args.out_dir,
@@ -118,5 +136,5 @@ def make_report_tables_main() -> None:
 if __name__ == "__main__":
     raise SystemExit(
         "Run one of the named entrypoints instead: officeqa-prepare-data, officeqa-build-page-index, "
-        "officeqa-run-retrieval-eval, or officeqa-make-report-tables."
+        "officeqa-build-multimodal-index, officeqa-run-retrieval-eval, or officeqa-make-report-tables."
     )

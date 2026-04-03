@@ -3,16 +3,18 @@
 Retrieval-only OfficeQA project focused on page retrieval with:
 
 - BM25 page retrieval
-- BM25 + CLIP reranking
-- BM25 + SigLIP reranking
+- CLIP multimodal FAISS retrieval
+- SigLIP multimodal FAISS retrieval
 - full-page vs fixed-crop ablations
 
 The implementation is Python-module first and Colab-friendly. Heavy runs are meant for Google Colab Pro, while local development and debugging can happen on a laptop.
 
+The recommended execution path is the single Colab notebook at `notebooks/officeqa_retrieval_colab.ipynb`. It mounts Drive, downloads missing PDFs, builds the retrieval indexes, runs the experiment suite, and exports analysis artifacts for the report.
+
 ## Repository layout
 
 - `src/officeqa_retrieval/`
-  - core loaders, indexing, rendering, reranking, metrics, and pipeline code
+  - core loaders, indexing, rendering, multimodal retrieval, metrics, and pipeline code
 - `scripts/`
   - thin wrappers for the main experiment commands
 - `tests/`
@@ -57,16 +59,16 @@ Base install:
 python3 -m pip install -e .
 ```
 
-Install with reranker dependencies:
+Install with model dependencies:
 
 ```bash
 python3 -m pip install -e ".[ml]"
 ```
 
-Install development dependencies:
+Install with FAISS and development dependencies:
 
 ```bash
-python3 -m pip install -e ".[ml,dev]"
+python3 -m pip install -e ".[ml,faiss,dev]"
 ```
 
 ## Quick start
@@ -94,47 +96,78 @@ python3 scripts/build_page_index.py \
   --index-out artifacts/page_bm25.pkl
 ```
 
-3. Run BM25 only:
+3. Build multimodal FAISS indexes:
+
+```bash
+python3 scripts/build_multimodal_index.py \
+  --manifest artifacts/page_manifest.jsonl \
+  --index-dir artifacts/clip_faiss_full \
+  --model clip \
+  --crop-mode full \
+  --render-cache artifacts/render_cache
+
+python3 scripts/build_multimodal_index.py \
+  --manifest artifacts/page_manifest.jsonl \
+  --index-dir artifacts/clip_faiss_fixed \
+  --model clip \
+  --crop-mode fixed_2x2 \
+  --render-cache artifacts/render_cache
+
+python3 scripts/build_multimodal_index.py \
+  --manifest artifacts/page_manifest.jsonl \
+  --index-dir artifacts/siglip_faiss_full \
+  --model siglip \
+  --crop-mode full \
+  --render-cache artifacts/render_cache
+
+python3 scripts/build_multimodal_index.py \
+  --manifest artifacts/page_manifest.jsonl \
+  --index-dir artifacts/siglip_faiss_fixed \
+  --model siglip \
+  --crop-mode fixed_2x2 \
+  --render-cache artifacts/render_cache
+```
+
+4. Run retrieval experiments:
 
 ```bash
 python3 scripts/run_retrieval_eval.py \
-  --questions-csv data/officeqa.csv \
-  --manifest artifacts/page_manifest.jsonl \
+  --questions-csv data/officeqa_pro.csv \
   --index artifacts/page_bm25.pkl \
   --out-dir results/bm25 \
   --model bm25 \
-  --shortlist-k 50
-```
+  --top-k 50
 
-4. Run CLIP full-page reranking:
-
-```bash
 python3 scripts/run_retrieval_eval.py \
-  --questions-csv data/officeqa.csv \
-  --manifest artifacts/page_manifest.jsonl \
-  --index artifacts/page_bm25.pkl \
-  --out-dir results/clip_full \
-  --model clip \
-  --crop-mode full \
-  --render-cache artifacts/render_cache \
-  --shortlist-k 50
-```
+  --questions-csv data/officeqa_pro.csv \
+  --index artifacts/clip_faiss_full \
+  --out-dir results/clip_faiss_full \
+  --model clip_faiss \
+  --top-k 50
 
-5. Run SigLIP fixed-crop reranking:
-
-```bash
 python3 scripts/run_retrieval_eval.py \
-  --questions-csv data/officeqa.csv \
-  --manifest artifacts/page_manifest.jsonl \
-  --index artifacts/page_bm25.pkl \
-  --out-dir results/siglip_crops \
-  --model siglip \
-  --crop-mode fixed_2x2 \
-  --render-cache artifacts/render_cache \
-  --shortlist-k 50
+  --questions-csv data/officeqa_pro.csv \
+  --index artifacts/clip_faiss_fixed \
+  --out-dir results/clip_faiss_fixed \
+  --model clip_faiss \
+  --top-k 50
+
+python3 scripts/run_retrieval_eval.py \
+  --questions-csv data/officeqa_pro.csv \
+  --index artifacts/siglip_faiss_full \
+  --out-dir results/siglip_faiss_full \
+  --model siglip_faiss \
+  --top-k 50
+
+python3 scripts/run_retrieval_eval.py \
+  --questions-csv data/officeqa_pro.csv \
+  --index artifacts/siglip_faiss_fixed \
+  --out-dir results/siglip_faiss_fixed \
+  --model siglip_faiss \
+  --top-k 50
 ```
 
-6. Build a summary table:
+5. Build a summary table:
 
 ```bash
 python3 scripts/make_report_tables.py \
@@ -153,12 +186,12 @@ The Colab notebook also exports analysis-friendly files under `results/analysis/
 ## Core experiment matrix
 
 - `BM25`
-- `BM25 + CLIP full-page`
-- `BM25 + CLIP fixed_2x2`
-- `BM25 + SigLIP full-page`
-- `BM25 + SigLIP fixed_2x2`
+- `CLIP-FAISS full-page`
+- `CLIP-FAISS fixed_2x2`
+- `SigLIP-FAISS full-page`
+- `SigLIP-FAISS fixed_2x2`
 
-Suggested shortlist depths:
+Suggested retrieval depths:
 
 - `10`
 - `20`
@@ -181,12 +214,18 @@ Optional secondary metrics:
 - No vector database is required in this version.
 - `scripts/download_officeqa_pdfs.py` downloads the Treasury Bulletin PDFs referenced by an OfficeQA CSV directly from FRASER.
 - BM25 is built over extracted page text from PDFs.
-- Rerankers only see the BM25 candidate pages, which keeps the experiment fair and Colab-friendly.
-- Fixed crops use a deterministic 2x2 grid and score a page by the best crop score.
+- Multimodal retrieval uses CLIP or SigLIP text-to-image embeddings indexed in FAISS with inner-product similarity.
+- Fixed crops use a deterministic 2x2 grid, index each crop separately, and aggregate retrieval scores back to the page level using the best crop score.
 
 ## Colab workflow
 
-Use `notebooks/officeqa_retrieval_colab.ipynb` as the main runner notebook. It mounts Google Drive, installs the package, and runs the exact CLI commands above.
+Use `notebooks/officeqa_retrieval_colab.ipynb` as the main runner notebook. It supports:
+
+- `RUN_MODE = "smoke"` using the bundled `data/officeqa_pro_smoke.csv`
+- `RUN_MODE = "full"` using `MyDrive/officeqa/officeqa_pro.csv`
+- automatic PDF downloading into `MyDrive/officeqa/pdfs/`
+- artifact reuse so reruns can skip expensive index builds
+- analysis exports under `MyDrive/officeqa/results/<run_tag>/analysis/`
 
 ## Course deliverable readiness
 

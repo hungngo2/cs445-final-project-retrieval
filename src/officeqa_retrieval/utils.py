@@ -42,6 +42,11 @@ def load_jsonl(path: str | Path) -> list[dict]:
         return [json.loads(line) for line in handle if line.strip()]
 
 
+def load_json(path: str | Path) -> dict | list:
+    with Path(path).open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
 def dump_json(data: dict | list, path: str | Path) -> None:
     output_path = ensure_parent_dir(path)
     with output_path.open("w", encoding="utf-8") as handle:

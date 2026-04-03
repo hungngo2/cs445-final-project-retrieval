@@ -4,65 +4,38 @@ from pathlib import Path
 
 from .bm25 import PageBm25Index
 from .dataset import load_questions
-from .manifest import build_page_lookup, load_page_manifest
+from .faiss_index import MultimodalFaissIndex
 from .metrics import evaluate_predictions, summarize_by_difficulty
-from .render import PageRenderer
-from .rerank import VisionReranker
 from .schemas import RankedPage
 from .utils import dump_json, dump_jsonl, ensure_dir
 
 
 def run_bm25_experiment(
     questions_csv: str | Path,
-    manifest_path: str | Path,
     index_path: str | Path,
-    shortlist_k: int = 50,
+    top_k: int = 50,
 ) -> tuple[list, dict[str, list[RankedPage]]]:
     questions = load_questions(questions_csv)
-    _ = load_page_manifest(manifest_path)
     index = PageBm25Index.load(index_path)
-    predictions = index.batch_search(questions, top_k=shortlist_k)
+    predictions = index.batch_search(questions, top_k=top_k)
     return questions, predictions
 
 
-def run_vision_experiment(
+def run_multimodal_faiss_experiment(
     questions_csv: str | Path,
-    manifest_path: str | Path,
     index_path: str | Path,
-    render_cache: str | Path,
-    model_key: str,
-    crop_mode: str,
-    shortlist_k: int = 50,
-    final_top_k: int | None = None,
-    model_name: str | None = None,
+    top_k: int = 50,
+    search_k_multiplier: int = 8,
     device: str | None = None,
     batch_size: int = 8,
 ) -> tuple[list, dict[str, list[RankedPage]]]:
     questions = load_questions(questions_csv)
-    page_records = load_page_manifest(manifest_path)
-    page_lookup = build_page_lookup(page_records)
-    index = PageBm25Index.load(index_path)
-    bm25_predictions = index.batch_search(questions, top_k=shortlist_k)
-    renderer = PageRenderer(render_cache)
-    reranker = VisionReranker(
-        model_key=model_key,
-        model_name=model_name,
+    index = MultimodalFaissIndex.load(
+        index_path,
         device=device,
         batch_size=batch_size,
     )
-
-    predictions: dict[str, list[RankedPage]] = {}
-    for question in questions:
-        candidates = bm25_predictions[question.uid]
-        predictions[question.uid] = reranker.rerank_candidates(
-            uid=question.uid,
-            query=question.question,
-            candidates=candidates,
-            page_lookup=page_lookup,
-            renderer=renderer,
-            crop_mode=crop_mode,
-            top_k=final_top_k,
-        )
+    predictions = index.batch_search(questions, top_k=top_k, search_k_multiplier=search_k_multiplier)
     return questions, predictions
 
 
