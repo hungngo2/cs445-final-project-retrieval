@@ -142,6 +142,14 @@ python3 scripts/make_report_tables.py \
   --summary-out results/summary.csv
 ```
 
+Each run persists:
+
+- `results/<run_name>/metrics.json`
+- `results/<run_name>/ranked_pages.jsonl`
+- `results/summary.csv`
+
+The Colab notebook also exports analysis-friendly files under `results/analysis/`, including summary tables, per-query metrics, difficulty summaries, and qualitative slices for selected question IDs.
+
 ## Core experiment matrix
 
 - `BM25`
