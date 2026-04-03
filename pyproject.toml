@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "officeqa-retrieval"
+version = "0.1.0"
+description = "Retrieval-only OfficeQA baseline with BM25, CLIP, and SigLIP reranking."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26",
+  "Pillow>=10.0",
+  "PyMuPDF>=1.24",
+  "rank-bm25>=0.2.2",
+  "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+ml = [
+  "protobuf>=5.0",
+  "sentencepiece>=0.2.0",
+  "torch>=2.2",
+  "transformers>=4.46",
+]
+dev = [
+  "pytest>=8.0",
+]
+
+[project.scripts]
+officeqa-prepare-data = "officeqa_retrieval.cli:prepare_data_main"
+officeqa-build-page-index = "officeqa_retrieval.cli:build_page_index_main"
+officeqa-run-retrieval-eval = "officeqa_retrieval.cli:run_retrieval_eval_main"
+officeqa-make-report-tables = "officeqa_retrieval.cli:make_report_tables_main"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
