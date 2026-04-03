@@ -74,8 +74,13 @@ python3 -m pip install -e ".[ml,dev]"
 1. Prepare page text and a sanity subset:
 
 ```bash
+python3 scripts/download_officeqa_pdfs.py \
+  --questions-csv data/officeqa_pro.csv \
+  --pdf-dir data/pdfs \
+  --skip-existing
+
 python3 scripts/prepare_data.py \
-  --questions-csv data/officeqa.csv \
+  --questions-csv data/officeqa_pro.csv \
   --pdf-dir data/pdfs \
   --manifest-out artifacts/page_manifest.jsonl \
   --sanity-out artifacts/sanity_questions.json
@@ -166,6 +171,7 @@ Optional secondary metrics:
 ## Notes on implementation
 
 - No vector database is required in this version.
+- `scripts/download_officeqa_pdfs.py` downloads the Treasury Bulletin PDFs referenced by an OfficeQA CSV directly from FRASER.
 - BM25 is built over extracted page text from PDFs.
 - Rerankers only see the BM25 candidate pages, which keeps the experiment fair and Colab-friendly.
 - Fixed crops use a deterministic 2x2 grid and score a page by the best crop score.
