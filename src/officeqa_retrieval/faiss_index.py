@@ -239,5 +239,5 @@ class MultimodalFaissIndex:
                 top_k=top_k,
                 search_k_multiplier=search_k_multiplier,
             )
-            for question in questions
+            for question in tqdm(questions, desc=f"{self.model_key} FAISS retrieval ({self.crop_mode})", leave=False)
         }

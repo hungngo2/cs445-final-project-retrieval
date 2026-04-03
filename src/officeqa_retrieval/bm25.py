@@ -4,6 +4,8 @@ import pickle
 from dataclasses import dataclass
 from pathlib import Path
 
+from tqdm import tqdm
+
 from .schemas import PageRecord, QuestionRecord, RankedPage
 from .utils import tokenize
 
@@ -84,4 +86,7 @@ class PageBm25Index:
         return results
 
     def batch_search(self, questions: list[QuestionRecord], top_k: int = 50) -> dict[str, list[RankedPage]]:
-        return {question.uid: self.search(question.question, uid=question.uid, top_k=top_k) for question in questions}
+        return {
+            question.uid: self.search(question.question, uid=question.uid, top_k=top_k)
+            for question in tqdm(questions, desc="BM25 retrieval", leave=False)
+        }
