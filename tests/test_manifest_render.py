@@ -15,6 +15,7 @@ def _make_test_pdf(path) -> None:
     document = fitz.open()
     first_page = document.new_page()
     first_page.insert_text((72, 72), "Federal receipts and defense spending")
+    first_page.insert_text((72, 220), "Quarterly summary table values for receipts and expenditures")
     second_page = document.new_page()
     second_page.insert_text((72, 72), "Table of monthly values")
     document.save(path)
@@ -35,7 +36,11 @@ def test_manifest_extracts_page_text_and_renderer_makes_crops(tmp_path) -> None:
     renderer = PageRenderer(tmp_path / "render_cache", dpi=72)
     full_image = renderer.render_page(manifest[0])
     crops = renderer.fixed_2x2_crops(manifest[0])
+    layout_crops = renderer.layout_aware_crops(manifest[0])
 
     assert full_image.exists()
     assert len(crops) == 4
     assert all(crop.exists() for crop in crops)
+    assert layout_crops
+    assert all(crop.exists() for crop in layout_crops)
+    assert any(path.name.startswith("layout_") for path in layout_crops)

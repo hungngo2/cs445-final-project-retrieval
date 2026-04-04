@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .bm25 import PageBm25Index
+from .colqwen import DEFAULT_COLQWEN_MODEL, run_colqwen2_rerank_experiment
 from .dataset import load_questions
 from .faiss_index import MultimodalFaissIndex
 from .metrics import evaluate_predictions, summarize_by_difficulty
@@ -37,6 +38,32 @@ def run_multimodal_faiss_experiment(
     )
     predictions = index.batch_search(questions, top_k=top_k, search_k_multiplier=search_k_multiplier)
     return questions, predictions
+
+
+def run_colqwen2_experiment(
+    questions_csv: str | Path,
+    index_path: str | Path,
+    render_cache: str | Path,
+    embedding_cache_dir: str | Path,
+    top_k: int = 50,
+    candidate_top_k: int = 50,
+    model_name: str = DEFAULT_COLQWEN_MODEL,
+    device: str | None = None,
+    batch_size: int = 2,
+    dpi: int = 150,
+) -> tuple[list, dict[str, list[RankedPage]]]:
+    return run_colqwen2_rerank_experiment(
+        questions_csv=questions_csv,
+        candidate_index_path=index_path,
+        render_cache=render_cache,
+        embedding_cache_dir=embedding_cache_dir,
+        top_k=top_k,
+        candidate_top_k=candidate_top_k,
+        model_name=model_name,
+        device=device,
+        batch_size=batch_size,
+        dpi=dpi,
+    )
 
 
 def save_run_artifacts(

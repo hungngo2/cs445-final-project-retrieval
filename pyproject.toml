@@ -29,6 +29,10 @@ faiss = [
 dev = [
   "pytest>=8.0",
 ]
+colqwen = [
+  "colpali-engine[interpretability]>=0.3.1",
+  "matplotlib>=3.8",
+]
 
 [project.scripts]
 officeqa-prepare-data = "officeqa_retrieval.cli:prepare_data_main"

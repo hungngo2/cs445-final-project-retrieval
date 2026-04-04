@@ -6,10 +6,11 @@ import json
 from pathlib import Path
 
 from .bm25 import PageBm25Index
+from .colqwen import DEFAULT_COLQWEN_MODEL
 from .dataset import load_questions, save_sanity_subset
 from .faiss_index import MultimodalFaissIndex
 from .manifest import build_page_manifest, load_page_manifest
-from .pipeline import run_bm25_experiment, run_multimodal_faiss_experiment, save_run_artifacts
+from .pipeline import run_bm25_experiment, run_colqwen2_experiment, run_multimodal_faiss_experiment, save_run_artifacts
 from .utils import ensure_parent_dir
 
 
@@ -43,7 +44,7 @@ def build_multimodal_index_main() -> None:
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--index-dir", required=True)
     parser.add_argument("--model", choices=["clip", "siglip"], required=True)
-    parser.add_argument("--crop-mode", choices=["full", "fixed_2x2"], default="full")
+    parser.add_argument("--crop-mode", choices=["full", "fixed_2x2", "layout_aware"], default="full")
     parser.add_argument("--render-cache", required=True)
     parser.add_argument("--model-name")
     parser.add_argument("--device")
@@ -72,11 +73,16 @@ def run_retrieval_eval_main() -> None:
     parser.add_argument("--questions-csv", required=True)
     parser.add_argument("--index", required=True)
     parser.add_argument("--out-dir", required=True)
-    parser.add_argument("--model", choices=["bm25", "clip_faiss", "siglip_faiss"], required=True)
+    parser.add_argument("--model", choices=["bm25", "clip_faiss", "siglip_faiss", "colqwen2_rerank"], required=True)
     parser.add_argument("--top-k", type=int, default=50)
     parser.add_argument("--search-k-multiplier", type=int, default=8)
     parser.add_argument("--device")
     parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--render-cache")
+    parser.add_argument("--embedding-cache-dir")
+    parser.add_argument("--candidate-top-k", type=int, default=50)
+    parser.add_argument("--model-name", default=DEFAULT_COLQWEN_MODEL)
+    parser.add_argument("--dpi", type=int, default=150)
     args = parser.parse_args()
 
     if args.model == "bm25":
@@ -86,6 +92,24 @@ def run_retrieval_eval_main() -> None:
             top_k=args.top_k,
         )
         method = "bm25"
+    elif args.model == "colqwen2_rerank":
+        if not args.render_cache:
+            raise ValueError("--render-cache is required for colqwen2_rerank runs.")
+        if not args.embedding_cache_dir:
+            raise ValueError("--embedding-cache-dir is required for colqwen2_rerank runs.")
+        questions, predictions = run_colqwen2_experiment(
+            questions_csv=args.questions_csv,
+            index_path=args.index,
+            render_cache=args.render_cache,
+            embedding_cache_dir=args.embedding_cache_dir,
+            top_k=args.top_k,
+            candidate_top_k=args.candidate_top_k,
+            model_name=args.model_name,
+            device=args.device,
+            batch_size=args.batch_size,
+            dpi=args.dpi,
+        )
+        method = "colqwen2_rerank"
     else:
         questions, predictions = run_multimodal_faiss_experiment(
             questions_csv=args.questions_csv,
