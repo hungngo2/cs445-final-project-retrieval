@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -124,6 +126,7 @@ class MultimodalFaissIndex:
         batch_size: int = 8,
         page_batch_size: int = 32,
         dpi: int = 150,
+        render_workers: int | None = None,
     ) -> "MultimodalFaissIndex":
         if not page_records:
             raise ValueError("page_records cannot be empty")
@@ -136,6 +139,9 @@ class MultimodalFaissIndex:
         metadata: list[EmbeddingMetadata] = []
         index = None
         total_pages = len(page_records)
+        if render_workers is None:
+            cpu_count = os.cpu_count() or 4
+            render_workers = max(1, min(8, cpu_count, page_batch_size))
 
         progress_bar = tqdm(
             range(0, len(page_records), page_batch_size),
@@ -145,8 +151,15 @@ class MultimodalFaissIndex:
             page_batch = page_records[start : start + page_batch_size]
             image_paths = []
             batch_metadata: list[EmbeddingMetadata] = []
-            for page_record in page_batch:
-                page_image_paths = renderer.get_image_paths(page_record, crop_mode=crop_mode)
+            if len(page_batch) == 1:
+                page_image_path_batches = [renderer.get_image_paths(page_batch[0], crop_mode=crop_mode)]
+            else:
+                with ThreadPoolExecutor(max_workers=min(render_workers, len(page_batch))) as executor:
+                    page_image_path_batches = list(
+                        executor.map(lambda record: renderer.get_image_paths(record, crop_mode=crop_mode), page_batch)
+                    )
+
+            for page_record, page_image_paths in zip(page_batch, page_image_path_batches, strict=True):
                 for image_path in page_image_paths:
                     image_paths.append(image_path)
                     batch_metadata.append(
