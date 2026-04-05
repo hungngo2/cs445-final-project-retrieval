@@ -20,6 +20,41 @@ def _import_faiss():
     return faiss
 
 
+def _write_build_progress(
+    index_dir: Path,
+    *,
+    status: str,
+    model_key: str,
+    crop_mode: str,
+    processed_pages: int,
+    total_pages: int,
+    embedding_count: int,
+    sample_page_batch: list[PageRecord] | None = None,
+    sample_image_paths: list[Path] | None = None,
+) -> None:
+    sample_page_batch = sample_page_batch or []
+    sample_image_paths = sample_image_paths or []
+    dump_json(
+        {
+            "status": status,
+            "model_key": model_key,
+            "crop_mode": crop_mode,
+            "processed_pages": processed_pages,
+            "total_pages": total_pages,
+            "embedding_count": embedding_count,
+            "sample_pages": [
+                {
+                    "doc_id": page_record.doc_id,
+                    "page_num": page_record.page_num,
+                }
+                for page_record in sample_page_batch[:8]
+            ],
+            "sample_image_paths": [str(path) for path in sample_image_paths[:8]],
+        },
+        index_dir / "build_progress.json",
+    )
+
+
 @dataclass(frozen=True)
 class EmbeddingMetadata:
     doc_id: str
@@ -101,14 +136,20 @@ class MultimodalFaissIndex:
         if not page_records:
             raise ValueError("page_records cannot be empty")
 
+        root = ensure_dir(index_dir)
         encoder = VisionTextEncoder(model_key=model_key, model_name=model_name, device=device, batch_size=batch_size)
         renderer = PageRenderer(render_cache, dpi=dpi)
         faiss = _import_faiss()
 
         metadata: list[EmbeddingMetadata] = []
         index = None
+        total_pages = len(page_records)
 
-        for start in tqdm(range(0, len(page_records), page_batch_size), desc=f"Building {model_key} FAISS index"):
+        progress_bar = tqdm(
+            range(0, len(page_records), page_batch_size),
+            desc=f"Building {model_key} FAISS index ({crop_mode})",
+        )
+        for start in progress_bar:
             page_batch = page_records[start : start + page_batch_size]
             image_paths = []
             batch_metadata: list[EmbeddingMetadata] = []
@@ -124,6 +165,29 @@ class MultimodalFaissIndex:
                             crop_name=image_path.name if crop_mode != "full" else None,
                         )
                     )
+
+            processed_pages = start + len(page_batch)
+            progress_bar.set_postfix(
+                processed_pages=f"{processed_pages}/{total_pages}",
+                embeddings=len(metadata) + len(batch_metadata),
+                current_page=f"{page_batch[-1].doc_id}:{page_batch[-1].page_num}",
+            )
+            tqdm.write(
+                f"[{model_key}:{crop_mode}] processing {page_batch[0].doc_id}:{page_batch[0].page_num} "
+                f"-> {page_batch[-1].doc_id}:{page_batch[-1].page_num} "
+                f"with {len(image_paths)} images"
+            )
+            _write_build_progress(
+                root,
+                status="running",
+                model_key=model_key,
+                crop_mode=crop_mode,
+                processed_pages=processed_pages,
+                total_pages=total_pages,
+                embedding_count=len(metadata) + len(batch_metadata),
+                sample_page_batch=page_batch,
+                sample_image_paths=image_paths,
+            )
 
             embeddings = encoder.embed_image_paths(image_paths)
             if index is None:
@@ -144,6 +208,15 @@ class MultimodalFaissIndex:
             batch_size=batch_size,
         )
         built.save(index_dir)
+        _write_build_progress(
+            root,
+            status="completed",
+            model_key=model_key,
+            crop_mode=crop_mode,
+            processed_pages=total_pages,
+            total_pages=total_pages,
+            embedding_count=len(metadata),
+        )
         return built
 
     @classmethod
