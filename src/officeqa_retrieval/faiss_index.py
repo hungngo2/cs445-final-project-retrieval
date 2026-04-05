@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from .render import PageRenderer
 from .schemas import PageRecord, QuestionRecord, RankedPage
-from .utils import dump_json, dump_jsonl, ensure_dir, load_json, load_jsonl
+from .utils import dump_json, dump_json_atomic, dump_jsonl, ensure_dir, load_json, load_jsonl
 from .vision import DEFAULT_MODELS, VisionTextEncoder
 
 
@@ -29,27 +29,19 @@ def _write_build_progress(
     processed_pages: int,
     total_pages: int,
     embedding_count: int,
-    sample_page_batch: list[PageRecord] | None = None,
-    sample_image_paths: list[Path] | None = None,
+    current_page: str | None = None,
 ) -> None:
-    sample_page_batch = sample_page_batch or []
-    sample_image_paths = sample_image_paths or []
-    dump_json(
+    percent_complete = 0.0 if total_pages == 0 else round((processed_pages / total_pages) * 100.0, 2)
+    dump_json_atomic(
         {
             "status": status,
             "model_key": model_key,
             "crop_mode": crop_mode,
             "processed_pages": processed_pages,
             "total_pages": total_pages,
+            "percent_complete": percent_complete,
             "embedding_count": embedding_count,
-            "sample_pages": [
-                {
-                    "doc_id": page_record.doc_id,
-                    "page_num": page_record.page_num,
-                }
-                for page_record in sample_page_batch[:8]
-            ],
-            "sample_image_paths": [str(path) for path in sample_image_paths[:8]],
+            "current_page": current_page,
         },
         index_dir / "build_progress.json",
     )
@@ -185,8 +177,7 @@ class MultimodalFaissIndex:
                 processed_pages=processed_pages,
                 total_pages=total_pages,
                 embedding_count=len(metadata) + len(batch_metadata),
-                sample_page_batch=page_batch,
-                sample_image_paths=image_paths,
+                current_page=f"{page_batch[-1].doc_id}:{page_batch[-1].page_num}",
             )
 
             embeddings = encoder.embed_image_paths(image_paths)
@@ -216,6 +207,7 @@ class MultimodalFaissIndex:
             processed_pages=total_pages,
             total_pages=total_pages,
             embedding_count=len(metadata),
+            current_page=None,
         )
         return built
 

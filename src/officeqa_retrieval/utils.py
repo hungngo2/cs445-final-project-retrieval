@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import tempfile
 from pathlib import Path
 from typing import Iterable, Iterator, Sequence, TypeVar
 
@@ -51,6 +52,22 @@ def dump_json(data: dict | list, path: str | Path) -> None:
     output_path = ensure_parent_dir(path)
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(data, handle, indent=2, ensure_ascii=True)
+
+
+def dump_json_atomic(data: dict | list, path: str | Path) -> None:
+    output_path = ensure_parent_dir(path)
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=str(output_path.parent),
+        prefix=f".{output_path.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as handle:
+        json.dump(data, handle, indent=2, ensure_ascii=True)
+        handle.flush()
+        temp_path = Path(handle.name)
+    temp_path.replace(output_path)
 
 
 def batched(values: Sequence[T], batch_size: int) -> Iterator[Sequence[T]]:
