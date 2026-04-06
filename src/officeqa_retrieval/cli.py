@@ -50,6 +50,7 @@ def build_ocr_manifest_main() -> None:
     parser.add_argument("--dpi", type=int, default=150)
     parser.add_argument("--lang", default="eng")
     parser.add_argument("--tesseract-cmd")
+    parser.add_argument("--progress-out")
     args = parser.parse_args()
 
     build_ocr_page_manifest(
@@ -61,6 +62,7 @@ def build_ocr_manifest_main() -> None:
         dpi=args.dpi,
         tesseract_cmd=args.tesseract_cmd,
         lang=args.lang,
+        progress_path=args.progress_out,
     )
 
 

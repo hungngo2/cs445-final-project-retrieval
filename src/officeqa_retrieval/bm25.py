@@ -28,7 +28,10 @@ class PageBm25Index:
     def build(cls, page_records: list[PageRecord]) -> "PageBm25Index":
         if not page_records:
             raise ValueError("page_records cannot be empty")
-        tokenized_corpus = [tokenize(record.page_text) for record in page_records]
+        tokenized_corpus = [
+            tokenize(record.page_text)
+            for record in tqdm(page_records, desc="Tokenizing BM25 corpus", leave=False)
+        ]
         bm25_cls = _import_bm25()
         bm25 = bm25_cls(tokenized_corpus)
         return cls(page_records=page_records, tokenized_corpus=tokenized_corpus, bm25=bm25)
