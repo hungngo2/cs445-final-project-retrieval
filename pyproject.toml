@@ -29,6 +29,9 @@ faiss = [
 dev = [
   "pytest>=8.0",
 ]
+ocr = [
+  "pytesseract>=0.3.10",
+]
 colqwen = [
   "colpali-engine[interpretability]>=0.3.1",
   "matplotlib>=3.8",
@@ -37,6 +40,7 @@ colqwen = [
 [project.scripts]
 officeqa-prepare-data = "officeqa_retrieval.cli:prepare_data_main"
 officeqa-build-page-index = "officeqa_retrieval.cli:build_page_index_main"
+officeqa-build-ocr-manifest = "officeqa_retrieval.cli:build_ocr_manifest_main"
 officeqa-build-multimodal-index = "officeqa_retrieval.cli:build_multimodal_index_main"
 officeqa-run-retrieval-eval = "officeqa_retrieval.cli:run_retrieval_eval_main"
 officeqa-make-report-tables = "officeqa_retrieval.cli:make_report_tables_main"

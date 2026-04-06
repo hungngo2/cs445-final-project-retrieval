@@ -70,6 +70,22 @@ def dump_json_atomic(data: dict | list, path: str | Path) -> None:
     temp_path.replace(output_path)
 
 
+def write_text_atomic(text: str, path: str | Path) -> None:
+    output_path = ensure_parent_dir(path)
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=str(output_path.parent),
+        prefix=f".{output_path.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as handle:
+        handle.write(text)
+        handle.flush()
+        temp_path = Path(handle.name)
+    temp_path.replace(output_path)
+
+
 def batched(values: Sequence[T], batch_size: int) -> Iterator[Sequence[T]]:
     if batch_size <= 0:
         raise ValueError("batch_size must be positive")

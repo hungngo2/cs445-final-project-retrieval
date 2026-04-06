@@ -10,6 +10,7 @@ from .colqwen import DEFAULT_COLQWEN_MODEL
 from .dataset import load_questions, save_sanity_subset
 from .faiss_index import MultimodalFaissIndex
 from .manifest import build_page_manifest, load_page_manifest
+from .ocr_manifest import build_ocr_page_manifest
 from .pipeline import run_bm25_experiment, run_colqwen2_experiment, run_multimodal_faiss_experiment, save_run_artifacts
 from .utils import ensure_parent_dir
 
@@ -37,6 +38,30 @@ def build_page_index_main() -> None:
     page_records = load_page_manifest(args.manifest)
     index = PageBm25Index.build(page_records)
     index.save(args.index_out)
+
+
+def build_ocr_manifest_main() -> None:
+    parser = argparse.ArgumentParser(description="Build an OCR-derived page manifest from a native page manifest.")
+    parser.add_argument("--manifest", required=True)
+    parser.add_argument("--manifest-out", required=True)
+    parser.add_argument("--render-cache", required=True)
+    parser.add_argument("--ocr-cache-dir", required=True)
+    parser.add_argument("--text-source", choices=["ocr", "hybrid"], default="ocr")
+    parser.add_argument("--dpi", type=int, default=150)
+    parser.add_argument("--lang", default="eng")
+    parser.add_argument("--tesseract-cmd")
+    args = parser.parse_args()
+
+    build_ocr_page_manifest(
+        input_manifest_path=args.manifest,
+        output_path=args.manifest_out,
+        render_cache=args.render_cache,
+        ocr_cache_dir=args.ocr_cache_dir,
+        text_source=args.text_source,
+        dpi=args.dpi,
+        tesseract_cmd=args.tesseract_cmd,
+        lang=args.lang,
+    )
 
 
 def build_multimodal_index_main() -> None:
@@ -160,5 +185,6 @@ def make_report_tables_main() -> None:
 if __name__ == "__main__":
     raise SystemExit(
         "Run one of the named entrypoints instead: officeqa-prepare-data, officeqa-build-page-index, "
-        "officeqa-build-multimodal-index, officeqa-run-retrieval-eval, or officeqa-make-report-tables."
+        "officeqa-build-ocr-manifest, officeqa-build-multimodal-index, officeqa-run-retrieval-eval, "
+        "or officeqa-make-report-tables."
     )
