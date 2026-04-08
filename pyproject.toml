@@ -30,7 +30,7 @@ dev = [
   "pytest>=8.0",
 ]
 ocr = [
-  "pytesseract>=0.3.10",
+  "paddleocr>=3.0.0",
 ]
 colqwen = [
   "colpali-engine[interpretability]>=0.3.1",

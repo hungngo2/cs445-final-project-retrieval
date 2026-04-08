@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 
 from tqdm import tqdm
@@ -10,24 +11,76 @@ from .schemas import PageRecord
 from .utils import dump_json_atomic, dump_jsonl, ensure_dir, write_text_atomic
 
 
-def _import_pytesseract():
+_OCR_ENGINE_CACHE: dict[tuple[str, str | None], object] = {}
+
+
+def _import_paddleocr():
     try:
-        import pytesseract
+        from paddleocr import PaddleOCR
     except ImportError as exc:
-        raise ImportError("pytesseract is required for OCR manifests.") from exc
-    return pytesseract
+        raise ImportError("paddleocr is required for OCR manifests.") from exc
+    return PaddleOCR
 
 
-def _ocr_page_image(image_path: Path, *, tesseract_cmd: str | None = None, lang: str = "eng") -> str:
-    pytesseract = _import_pytesseract()
-    if tesseract_cmd:
-        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+def _build_paddleocr_engine(*, lang: str = "en", device: str | None = None):
+    cache_key = (lang, device)
+    if cache_key in _OCR_ENGINE_CACHE:
+        return _OCR_ENGINE_CACHE[cache_key]
 
-    from PIL import Image
+    paddleocr_cls = _import_paddleocr()
+    signature = inspect.signature(paddleocr_cls)
+    kwargs: dict[str, object] = {}
+    if "lang" in signature.parameters:
+        kwargs["lang"] = lang
+    if "use_doc_orientation_classify" in signature.parameters:
+        kwargs["use_doc_orientation_classify"] = False
+    if "use_doc_unwarping" in signature.parameters:
+        kwargs["use_doc_unwarping"] = False
+    if "use_textline_orientation" in signature.parameters:
+        kwargs["use_textline_orientation"] = False
+    if "device" in signature.parameters and device:
+        kwargs["device"] = device
+    elif "use_gpu" in signature.parameters:
+        kwargs["use_gpu"] = bool(device and device.startswith("gpu"))
+    if "show_log" in signature.parameters:
+        kwargs["show_log"] = False
 
-    with Image.open(image_path) as image:
-        image = image.convert("RGB")
-        return pytesseract.image_to_string(image, lang=lang).strip()
+    engine = paddleocr_cls(**kwargs)
+    _OCR_ENGINE_CACHE[cache_key] = engine
+    return engine
+
+
+def _extract_paddle_text(result) -> str:
+    if result is None:
+        return ""
+    if isinstance(result, str):
+        return result.strip()
+    if isinstance(result, dict):
+        if "rec_texts" in result:
+            return " ".join(str(text).strip() for text in result["rec_texts"] if str(text).strip()).strip()
+        if "res" in result:
+            return _extract_paddle_text(result["res"])
+    if hasattr(result, "res"):
+        return _extract_paddle_text(result.res)
+    if isinstance(result, (list, tuple)):
+        text_parts: list[str] = []
+        for item in result:
+            text = _extract_paddle_text(item)
+            if text:
+                text_parts.append(text)
+        return " ".join(text_parts).strip()
+    return ""
+
+
+def _ocr_page_image(image_path: Path, *, lang: str = "en", device: str | None = None) -> str:
+    engine = _build_paddleocr_engine(lang=lang, device=device)
+    if hasattr(engine, "predict"):
+        result = engine.predict(str(image_path))
+        return _extract_paddle_text(result)
+    if hasattr(engine, "ocr"):
+        result = engine.ocr(str(image_path), cls=False)
+        return _extract_paddle_text(result)
+    raise AttributeError("Unsupported PaddleOCR engine interface: expected predict() or ocr().")
 
 
 def _ocr_cache_path(cache_dir: str | Path, page_record: PageRecord) -> Path:
@@ -78,8 +131,8 @@ def build_ocr_page_manifest(
     *,
     text_source: str = "ocr",
     dpi: int = 150,
-    tesseract_cmd: str | None = None,
-    lang: str = "eng",
+    device: str | None = None,
+    lang: str = "en",
     progress_path: str | Path | None = None,
 ) -> list[PageRecord]:
     if text_source not in {"ocr", "hybrid"}:
@@ -99,7 +152,7 @@ def build_ocr_page_manifest(
             ocr_text = cache_path.read_text(encoding="utf-8").strip()
         else:
             image_path = renderer.render_page(page_record)
-            ocr_text = _ocr_page_image(image_path, tesseract_cmd=tesseract_cmd, lang=lang)
+            ocr_text = _ocr_page_image(image_path, lang=lang, device=device)
             write_text_atomic(ocr_text, cache_path)
 
         if text_source == "ocr":

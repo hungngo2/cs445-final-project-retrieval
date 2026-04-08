@@ -41,15 +41,15 @@ def build_page_index_main() -> None:
 
 
 def build_ocr_manifest_main() -> None:
-    parser = argparse.ArgumentParser(description="Build an OCR-derived page manifest from a native page manifest.")
+    parser = argparse.ArgumentParser(description="Build a PaddleOCR-derived page manifest from a native page manifest.")
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--manifest-out", required=True)
     parser.add_argument("--render-cache", required=True)
     parser.add_argument("--ocr-cache-dir", required=True)
     parser.add_argument("--text-source", choices=["ocr", "hybrid"], default="ocr")
     parser.add_argument("--dpi", type=int, default=150)
-    parser.add_argument("--lang", default="eng")
-    parser.add_argument("--tesseract-cmd")
+    parser.add_argument("--lang", default="en")
+    parser.add_argument("--device")
     parser.add_argument("--progress-out")
     args = parser.parse_args()
 
@@ -60,7 +60,7 @@ def build_ocr_manifest_main() -> None:
         ocr_cache_dir=args.ocr_cache_dir,
         text_source=args.text_source,
         dpi=args.dpi,
-        tesseract_cmd=args.tesseract_cmd,
+        device=args.device,
         lang=args.lang,
         progress_path=args.progress_out,
     )
