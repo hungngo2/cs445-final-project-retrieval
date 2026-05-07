@@ -9,7 +9,11 @@ Retrieval-only OfficeQA project focused on page retrieval with:
 
 The implementation is Python-module first and Colab-friendly. Heavy runs are meant for Google Colab Pro, while local development and debugging can happen on a laptop.
 
-The recommended execution path is the single Colab notebook at `notebooks/officeqa_retrieval_colab.ipynb`. It mounts Drive, downloads missing PDFs, builds the retrieval indexes, runs the experiment suite, and exports analysis artifacts for the report.
+The recommended execution path is the single Colab notebook at `notebooks/final_cs445.ipynb`. It mounts Drive, downloads missing PDFs, builds the retrieval indexes, runs the experiment suite, and exports analysis artifacts for the report.
+
+## Link to Google Drive data
+https://drive.google.com/drive/folders/1lec6wSTPokv9bCmnRiYJaJkM2MbFwVZe?usp=drive_link
+
 
 ## Repository layout
 
@@ -17,8 +21,6 @@ The recommended execution path is the single Colab notebook at `notebooks/office
   - core loaders, indexing, rendering, multimodal retrieval, metrics, and pipeline code
 - `scripts/`
   - thin wrappers for the main experiment commands
-- `tests/`
-  - unit and integration tests on synthetic data
 - `notebooks/`
   - Colab runner notebook and lightweight analysis workflow
 
@@ -211,7 +213,6 @@ Optional secondary metrics:
 
 ## Notes on implementation
 
-- No vector database is required in this version.
 - `scripts/download_officeqa_pdfs.py` downloads the Treasury Bulletin PDFs referenced by an OfficeQA CSV directly from FRASER.
 - BM25 is built over extracted page text from PDFs.
 - Multimodal retrieval uses CLIP or SigLIP text-to-image embeddings indexed in FAISS with inner-product similarity.
@@ -226,12 +227,3 @@ Use `notebooks/officeqa_retrieval_colab.ipynb` as the main runner notebook. It s
 - automatic PDF downloading into `MyDrive/officeqa/pdfs/`
 - artifact reuse so reruns can skip expensive index builds
 - analysis exports under `MyDrive/officeqa/results/<run_tag>/analysis/`
-
-## Course deliverable readiness
-
-This repository is organized to support the final submission requirements:
-
-- code in a clean project directory
-- a README explaining structure and how to run
-- reproducible experiment commands
-- saved metrics and ranked outputs for paper tables
