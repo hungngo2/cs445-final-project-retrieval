@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="920" viewBox="0 0 1400 920">
+  <defs>
+    <style>
+      .bg { fill: #fcfbf8; }
+      .title { font: 700 34px Georgia, 'Times New Roman', serif; fill: #1e2b35; }
+      .subtitle { font: 600 18px Georgia, 'Times New Roman', serif; fill: #4e5b66; }
+      .section { font: 700 22px Georgia, 'Times New Roman', serif; fill: #1f303a; }
+      .label { font: 600 17px Arial, Helvetica, sans-serif; fill: #21343f; }
+      .body { font: 15px Arial, Helvetica, sans-serif; fill: #32444f; }
+      .small { font: 14px Arial, Helvetica, sans-serif; fill: #5e6a73; }
+      .box { stroke: #21343f; stroke-width: 2.4; rx: 16; ry: 16; }
+      .stage1 { fill: #e6f0fb; }
+      .stage2 { fill: #e8f5ef; }
+      .stage3 { fill: #f8eedc; }
+      .stage4 { fill: #f4e8f5; }
+      .stage5 { fill: #f9e5e2; }
+      .arrow { stroke: #21343f; stroke-width: 3; fill: none; marker-end: url(#arrowhead); }
+      .guide { stroke: #aab6bf; stroke-width: 2; stroke-dasharray: 8 8; }
+    </style>
+    <marker id="arrowhead" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <polygon points="0 0, 12 6, 0 12" fill="#21343f"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1400" height="920"/>
+  <text class="title" x="60" y="70">Experiment Pipeline</text>
+  <text class="subtitle" x="60" y="108">From source documents to quantitative analysis, the workflow separates expensive indexing from cheap repeatable evaluation.</text>
+
+  <rect class="box stage1" x="70" y="160" width="1240" height="105"/>
+  <text class="section" x="95" y="200">1. Data acquisition</text>
+  <text class="body" x="95" y="232">Download Treasury Bulletin PDFs referenced by the OfficeQA CSV, verify source files, and build a shared page manifest for all later experiments.</text>
+
+  <rect class="box stage2" x="70" y="305" width="380" height="170"/>
+  <text class="section" x="95" y="345">2A. Sparse text indexing</text>
+  <text class="body" x="95" y="377">Extract native PDF text per page with PyMuPDF.</text>
+  <text class="body" x="95" y="405">Tokenize page text and build one BM25 entry per page.</text>
+  <text class="body" x="95" y="433">Run BM25 retrieval directly on the shared page corpus.</text>
+
+  <rect class="box stage2" x="490" y="305" width="380" height="170"/>
+  <text class="section" x="515" y="345">2B. Multimodal image indexing</text>
+  <text class="body" x="515" y="377">Render each page to an image cache.</text>
+  <text class="body" x="515" y="405">Create full-page, fixed-crop, or layout-aware views.</text>
+  <text class="body" x="515" y="433">Embed images with CLIP or SigLIP and add them to FAISS.</text>
+
+  <rect class="box stage2" x="910" y="305" width="400" height="170"/>
+  <text class="section" x="935" y="345">2C. Reusable experiment assets</text>
+  <text class="body" x="935" y="377">manifest.jsonl, page_bm25.pkl</text>
+  <text class="body" x="935" y="405">clip_faiss_full / fixed / layout</text>
+  <text class="body" x="935" y="433">siglip_faiss_full / fixed / layout</text>
+
+  <rect class="box stage3" x="70" y="530" width="1240" height="140"/>
+  <text class="section" x="95" y="570">3. Retrieval runs</text>
+  <text class="body" x="95" y="602">For each question, retrieve the top 50 pages with a chosen method. BM25 uses lexical scoring; CLIP and SigLIP encode the query text and search the corresponding FAISS index.</text>
+  <text class="body" x="95" y="630">For cropped multimodal indexes, individual crop or region hits are aggregated back to a page score by taking the highest matching crop for each page.</text>
+
+  <rect class="box stage4" x="70" y="715" width="610" height="140"/>
+  <text class="section" x="95" y="755">4A. Quantitative evaluation</text>
+  <text class="body" x="95" y="787">Compute page Recall@1/5/10, page MRR, nDCG@10, document recall, and document MRR.</text>
+  <text class="body" x="95" y="815">Persist metrics.json and ranked_pages.jsonl for each run.</text>
+
+  <rect class="box stage5" x="720" y="715" width="590" height="140"/>
+  <text class="section" x="745" y="755">4B. Analysis and report artifacts</text>
+  <text class="body" x="745" y="787">Generate summary tables, recall curves, localization ablations, win/loss summaries, first-hit rank analyses, and qualitative retrieval comparisons.</text>
+  <text class="body" x="745" y="815">These outputs drive the final report figures and conclusions.</text>
+
+  <path class="arrow" d="M690 265 V305"/>
+  <path class="arrow" d="M450 390 H490"/>
+  <path class="arrow" d="M870 390 H910"/>
+  <path class="arrow" d="M1110 475 V530"/>
+  <path class="arrow" d="M690 670 V715"/>
+  <path class="arrow" d="M680 785 H720"/>
+
+  <line class="guide" x1="690" y1="305" x2="690" y2="855"/>
+  <text class="small" x="72" y="890">Key design choice: expensive work happens during one-time indexing, while evaluation and analysis can be rerun repeatedly from saved indexes and ranked outputs.</text>
+</svg>
